@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FacultySync - Faculty Portal</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f3f6f5; color: #1f2937; }
+        header { background: #047857; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        header h1 { margin: 0; font-size: 22px; }
+        header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+        .user { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .user select { padding: 6px; border-radius: 5px; border: 0; font-size: 14px; }
+        nav { display: flex; gap: 4px; background: #fff; padding: 0 24px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+        nav button { border: 0; background: none; padding: 14px 16px; cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; }
+        nav button.active { border-color: #047857; color: #047857; font-weight: 600; }
+        main { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .card h2 { margin-top: 0; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eef0f4; vertical-align: top; }
+        th { background: #f8fafc; color: #475569; font-weight: 600; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .PENDING { background: #fef3c7; color: #92400e; }
+        .APPROVED { background: #d1fae5; color: #065f46; }
+        .REJECTED { background: #fee2e2; color: #991b1b; }
+        button.btn { background: #047857; color: #fff; border: 0; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+        label { font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 4px; }
+        input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 14px; }
+        .tab { display: none; } .tab.active { display: block; }
+        .muted { color: #64748b; font-size: 12px; }
+        .profile { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+        .profile div { background: #f0fdf4; border-radius: 6px; padding: 10px 12px; }
+        .profile b { display: block; font-size: 12px; color: #047857; margin-bottom: 2px; }
+        footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 16px; }
+        #toast { position: fixed; bottom: 20px; right: 20px; background: #111827; color: #fff; padding: 10px 16px; border-radius: 6px; display: none; }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>FacultySync &middot; Faculty Portal</h1>
+        <p>Apply for leave, track its status and view your timetable</p>
+    </div>
+    <div class="user">Logged in as <select id="me" onchange="selectMe()"></select></div>
+</header>
+<nav>
+    <button class="active" onclick="showTab('apply', this)">Apply Leave</button>
+    <button onclick="showTab('leaves', this)">My Leaves</button>
+    <button onclick="showTab('timetable', this)">My Timetable</button>
+</nav>
+
+<main>
+    <div class="card profile" id="profile"></div>
+
+    <section id="apply" class="tab active card">
+        <h2>Apply for Leave</h2>
+        <form onsubmit="applyLeave(event)">
+            <label>From date <input type="date" id="lvFrom" required></label>
+            <label>To date <input type="date" id="lvTo" required></label>
+            <label>Reason <input type="text" id="lvReason" placeholder="e.g. Medical leave" required></label>
+            <div><button class="btn" type="submit">Submit Leave Request</button></div>
+        </form>
+        <p class="muted">Your request goes to the HOD for approval. Its status is shown under "My Leaves".</p>
+    </section>
+
+    <section id="leaves" class="tab card">
+        <h2>My Leave Requests</h2>
+        <table><thead><tr><th>ID</th><th>From</th><th>To</th><th>Reason</th><th>Applied on</th><th>Status</th><th>My classes during leave</th></tr></thead>
+            <tbody id="leaveBody"></tbody></table>
+    </section>
+
+    <section id="timetable" class="tab card">
+        <h2>My Weekly Timetable</h2>
+        <table><thead><tr><th>Day</th><th>Period</th><th>Subject</th><th>Class</th><th>Room</th></tr></thead>
+            <tbody id="ttBody"></tbody></table>
+    </section>
+</main>
+<footer>Faculty Portal (port 8083) &rarr; Faculty Management Service (port 8081)</footer>
+<div id="toast"></div>
+
+<script>
+    const FACULTY_API = "http://localhost:8081/api";
+    const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+    let facultyById = {}, me = null;
+
+    async function api(url, options = {}) {
+        const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...options });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || err.error || res.statusText);
+        }
+        return res.json();
+    }
+
+    function toast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg; t.style.display = "block";
+        setTimeout(() => t.style.display = "none", 3000);
+    }
+
+    function showTab(id, btn) {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        btn.classList.add("active");
+        refresh();
+    }
+
+    const name = id => facultyById[id] ? facultyById[id].name : "#" + id;
+
+    // No real login in this project: the faculty member picks their name (remembered in the browser)
+    async function loadFaculty() {
+        const list = await api(FACULTY_API + "/faculty");
+        facultyById = Object.fromEntries(list.map(f => [f.id, f]));
+        let saved = null;
+        try { saved = localStorage.getItem("facultysync.me"); } catch (e) {}
+        me = facultyById[saved] ? +saved : list[0].id;
+        document.getElementById("me").innerHTML =
+            list.map(f => `<option value="${f.id}" ${f.id === me ? "selected" : ""}>${f.name}</option>`).join("");
+    }
+
+    function selectMe() {
+        me = +document.getElementById("me").value;
+        try { localStorage.setItem("facultysync.me", me); } catch (e) {}
+        refresh();
+    }
+
+    function showProfile() {
+        const f = facultyById[me];
+        document.getElementById("profile").innerHTML = `
+            <div><b>Name</b>${f.name}</div><div><b>Designation</b>${f.designation || "-"}</div>
+            <div><b>Department</b>${f.department || "-"}</div><div><b>Subjects</b>${f.subjects.join(", ")}</div>`;
+    }
+
+    async function loadLeaves() {
+        const leaves = (await api(FACULTY_API + "/leaves")).filter(l => l.facultyId === me).reverse();
+        const rows = await Promise.all(leaves.map(async l => {
+            let classes = `<span class="muted">-</span>`;
+            if (l.status === "APPROVED") {
+                const affected = await api(`${FACULTY_API}/leaves/${l.id}/affected-classes`);
+                classes = affected.length ? affected.map(c =>
+                    `${c.date} P${c.period} ${c.subject} (${c.className}): ` +
+                    (c.substituteFacultyId ? `<b>${name(c.substituteFacultyId)}</b>` : `<span class="muted">awaiting substitute</span>`)
+                ).join("<br>") : `<span class="muted">No classes affected</span>`;
+            }
+            return `<tr><td>${l.id}</td><td>${l.fromDate}</td><td>${l.toDate}</td><td>${l.reason}</td><td>${l.appliedOn}</td>
+                    <td><span class="badge ${l.status}">${l.status}</span></td><td>${classes}</td></tr>`;
+        }));
+        document.getElementById("leaveBody").innerHTML = rows.join("") ||
+            `<tr><td colspan="7" class="muted">You have not applied for any leave yet.</td></tr>`;
+    }
+
+    async function loadTimetable() {
+        const slots = await api(FACULTY_API + "/timetable?facultyId=" + me);
+        slots.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.period - b.period);
+        document.getElementById("ttBody").innerHTML = slots.map(s =>
+            `<tr><td>${s.day}</td><td>${s.period}</td><td>${s.subject}</td><td>${s.className}</td><td>${s.room}</td></tr>`).join("") ||
+            `<tr><td colspan="5" class="muted">No classes assigned.</td></tr>`;
+    }
+
+    async function applyLeave(e) {
+        e.preventDefault();
+        try {
+            await api(FACULTY_API + "/leaves", { method: "POST", body: JSON.stringify({
+                facultyId: me,
+                fromDate: document.getElementById("lvFrom").value,
+                toDate: document.getElementById("lvTo").value,
+                reason: document.getElementById("lvReason").value }) });
+            e.target.reset();
+            toast("Leave request submitted. Waiting for HOD approval.");
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    async function refresh() {
+        try {
+            if (!me) await loadFaculty();
+            showProfile();
+            await Promise.all([loadLeaves(), loadTimetable()]);
+        } catch (err) { toast("Cannot reach Faculty Service (port 8081): " + err.message); }
+    }
+    refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FacultySync - HOD Portal</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f3f5f9; color: #1f2937; }
+        header { background: #1e3a8a; color: #fff; padding: 16px 24px; }
+        header h1 { margin: 0; font-size: 22px; }
+        header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+        nav { display: flex; gap: 4px; background: #fff; padding: 0 24px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+        nav button { border: 0; background: none; padding: 14px 16px; cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; }
+        nav button.active { border-color: #1e3a8a; color: #1e3a8a; font-weight: 600; }
+        main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .card h2 { margin-top: 0; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eef0f4; vertical-align: top; }
+        th { background: #f8fafc; color: #475569; font-weight: 600; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .PENDING { background: #fef3c7; color: #92400e; }
+        .APPROVED { background: #d1fae5; color: #065f46; }
+        .REJECTED { background: #fee2e2; color: #991b1b; }
+        button.btn { background: #1e3a8a; color: #fff; border: 0; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; margin: 2px; }
+        button.btn.green { background: #059669; } button.btn.red { background: #dc2626; } button.btn.purple { background: #7c3aed; }
+        form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        label { font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 4px; }
+        input, select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 14px; }
+        .tab { display: none; } .tab.active { display: block; }
+        .score { font-weight: 700; color: #7c3aed; }
+        .muted { color: #64748b; font-size: 12px; }
+        .editor { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+        .editor h3 { margin: 0 0 10px; font-size: 15px; }
+        .editor .actions { display: flex; gap: 6px; align-items: end; }
+        button.btn.gray { background: #94a3b8; }
+        #facultyBody td:last-child, #ttBody td:last-child { white-space: nowrap; }
+        footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 16px; }
+        #toast { position: fixed; bottom: 20px; right: 20px; background: #111827; color: #fff; padding: 10px 16px; border-radius: 6px; display: none; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>FacultySync &middot; HOD Portal</h1>
+    <p>Approve leave, review AI substitute recommendations, confirm substitutes, manage faculty and timetable</p>
+</header>
+<nav>
+    <button class="active" onclick="showTab('hod', this)">Leave Requests</button>
+    <button onclick="showTab('subs', this)">Substitutions</button>
+    <button onclick="showTab('faculty', this)">Faculty</button>
+    <button onclick="showTab('timetable', this)">Timetable</button>
+</nav>
+
+<main>
+    <section id="faculty" class="tab card">
+        <h2>Faculty Members</h2>
+        <div class="editor">
+            <h3 id="fTitle">Add Faculty</h3>
+            <form id="fForm" onsubmit="saveFaculty(event)">
+                <input type="hidden" id="fId">
+                <label>Name <input id="fName" required placeholder="e.g. Prof. Ravi Teja"></label>
+                <label>Designation <input id="fDesignation" placeholder="e.g. Assistant Professor"></label>
+                <label>Department <input id="fDepartment" placeholder="e.g. CSE"></label>
+                <label>Email <input id="fEmail" type="email" placeholder="name@college.edu"></label>
+                <label style="grid-column: span 2">Subjects (comma separated) <input id="fSubjects" placeholder="e.g. DBMS, Data Structures"></label>
+                <div class="actions">
+                    <button class="btn green" type="submit" id="fSave">Add Faculty</button>
+                    <button class="btn gray" type="button" onclick="resetFacultyForm()">Clear</button>
+                </div>
+            </form>
+        </div>
+        <table><thead><tr><th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Subjects</th><th>Classes/week</th><th>Actions</th></tr></thead>
+            <tbody id="facultyBody"></tbody></table>
+    </section>
+
+    <section id="timetable" class="tab card">
+        <h2>Weekly Timetable</h2>
+        <div class="editor">
+            <h3 id="tTitle">Add Period</h3>
+            <form id="tForm" onsubmit="saveSlot(event)">
+                <input type="hidden" id="tId">
+                <label>Faculty <select id="tFaculty" required></select></label>
+                <label>Day <select id="tDay" required>
+                    <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
+                    <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option></select></label>
+                <label>Period (1-8) <input id="tPeriod" type="number" min="1" max="8" required></label>
+                <label>Subject <input id="tSubject" required list="subjectList" placeholder="e.g. DBMS"></label>
+                <label>Class <input id="tClass" required placeholder="e.g. CSE-3A"></label>
+                <label>Room <input id="tRoom" placeholder="e.g. 103"></label>
+                <div class="actions">
+                    <button class="btn green" type="submit" id="tSave">Add Period</button>
+                    <button class="btn gray" type="button" onclick="resetSlotForm()">Clear</button>
+                </div>
+            </form>
+            <datalist id="subjectList"></datalist>
+        </div>
+        <label style="max-width:300px">Filter by faculty <select id="ttFilter" onchange="loadTimetable()"></select></label><br>
+        <table><thead><tr><th>Day</th><th>Period</th><th>Subject</th><th>Class</th><th>Room</th><th>Faculty</th><th>Actions</th></tr></thead>
+            <tbody id="ttBody"></tbody></table>
+    </section>
+
+    <section id="hod" class="tab active">
+        <div class="card">
+            <h2>Leave Requests <span class="muted" id="pendingCount"></span></h2>
+            <table><thead><tr><th>ID</th><th>Faculty</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="leaveBody"></tbody></table>
+        </div>
+        <div class="card" id="recCard" style="display:none">
+            <h2 id="recTitle">AI Substitute Recommendations</h2>
+            <p class="muted">Recommended by the AI Substitute Service (port 8082). The HOD makes the final selection.</p>
+            <table><thead><tr><th>Date</th><th>Period</th><th>Subject / Class</th><th>Recommended</th><th>Alternatives</th><th>Action</th></tr></thead>
+                <tbody id="recBody"></tbody></table>
+        </div>
+    </section>
+
+    <section id="subs" class="tab card">
+        <h2>Confirmed Substitutions</h2>
+        <table><thead><tr><th>#</th><th>Date</th><th>Class</th><th>Absent Faculty</th><th>Substitute</th></tr></thead>
+            <tbody id="subsBody"></tbody></table>
+    </section>
+</main>
+<footer>HOD Portal (port 8084) &rarr; Faculty Management Service (port 8081) + AI Substitute Service (port 8082)</footer>
+<div id="toast"></div>
+
+<script>
+    const FACULTY_API = "http://localhost:8081/api";
+    const AI_API = "http://localhost:8082/api";
+    let facultyById = {}, slotsById = {};
+
+    async function api(url, options = {}) {
+        const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...options });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || err.error || res.statusText);
+        }
+        return res.status === 204 ? null : res.json();
+    }
+
+    function toast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg; t.style.display = "block";
+        setTimeout(() => t.style.display = "none", 3000);
+    }
+
+    function showTab(id, btn) {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        btn.classList.add("active");
+        refresh();
+    }
+
+    const name = id => facultyById[id] ? facultyById[id].name : "#" + id;
+
+    async function loadFaculty() {
+        const [list, load] = await Promise.all([api(FACULTY_API + "/faculty"), api(FACULTY_API + "/faculty/workload")]);
+        facultyById = Object.fromEntries(list.map(f => [f.id, f]));
+        document.getElementById("facultyBody").innerHTML = list.map(f =>
+            `<tr><td>${f.id}</td><td>${f.name}</td><td>${f.designation}</td><td>${f.department}</td>
+             <td>${f.subjects.join(", ")}</td><td>${load[f.id] ?? 0}</td>
+             <td><button class="btn" onclick="editFaculty(${f.id})">Edit</button>
+                 <button class="btn red" onclick="deleteFaculty(${f.id})">Delete</button></td></tr>`).join("");
+        const options = list.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+        const tFaculty = document.getElementById("tFaculty");
+        const keepT = tFaculty.value;
+        tFaculty.innerHTML = options;
+        if (keepT) tFaculty.value = keepT;
+        const subjects = [...new Set(list.flatMap(f => f.subjects))].sort();
+        document.getElementById("subjectList").innerHTML = subjects.map(x => `<option value="${x}">`).join("");
+        const filter = document.getElementById("ttFilter");
+        const keep = filter.value;
+        filter.innerHTML = `<option value="">All faculty</option>` + options;
+        filter.value = keep;
+    }
+
+    async function loadTimetable() {
+        const f = document.getElementById("ttFilter").value;
+        const all = await api(FACULTY_API + "/timetable");
+        slotsById = Object.fromEntries(all.map(s => [s.id, s]));
+        const slots = f ? all.filter(s => s.facultyId === +f) : all;
+        const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+        slots.sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || a.period - b.period);
+        document.getElementById("ttBody").innerHTML = slots.map(s =>
+            `<tr><td>${s.day}</td><td>${s.period}</td><td>${s.subject}</td><td>${s.className}</td>
+             <td>${s.room}</td><td>${name(s.facultyId)}</td>
+             <td><button class="btn" onclick="editSlot(${s.id})">Edit</button>
+                 <button class="btn red" onclick="deleteSlot(${s.id})">Delete</button></td></tr>`).join("");
+    }
+
+    // ---------------- Manage faculty ----------------
+    const val = id => document.getElementById(id).value.trim();
+
+    function resetFacultyForm() {
+        document.getElementById("fForm").reset();
+        document.getElementById("fId").value = "";
+        document.getElementById("fTitle").textContent = "Add Faculty";
+        document.getElementById("fSave").textContent = "Add Faculty";
+    }
+
+    function editFaculty(id) {
+        const f = facultyById[id];
+        document.getElementById("fId").value = f.id;
+        document.getElementById("fName").value = f.name;
+        document.getElementById("fDesignation").value = f.designation || "";
+        document.getElementById("fDepartment").value = f.department || "";
+        document.getElementById("fEmail").value = f.email || "";
+        document.getElementById("fSubjects").value = f.subjects.join(", ");
+        document.getElementById("fTitle").textContent = "Edit Faculty #" + f.id;
+        document.getElementById("fSave").textContent = "Save Changes";
+        document.getElementById("fForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    async function saveFaculty(e) {
+        e.preventDefault();
+        const id = val("fId");
+        const body = JSON.stringify({ name: val("fName"), designation: val("fDesignation"), department: val("fDepartment"),
+            email: val("fEmail"), subjects: val("fSubjects").split(",").map(x => x.trim()).filter(Boolean) });
+        try {
+            await api(FACULTY_API + "/faculty" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body });
+            toast(id ? "Faculty updated" : "Faculty added");
+            resetFacultyForm();
+            await refresh();
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    async function deleteFaculty(id) {
+        if (!confirm("Delete " + name(id) + "?")) return;
+        try {
+            await api(FACULTY_API + "/faculty/" + id, { method: "DELETE" });
+            toast("Faculty deleted");
+            await refresh();
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    // ---------------- Manage timetable ----------------
+    function resetSlotForm() {
+        document.getElementById("tForm").reset();
+        document.getElementById("tId").value = "";
+        document.getElementById("tTitle").textContent = "Add Period";
+        document.getElementById("tSave").textContent = "Add Period";
+    }
+
+    function editSlot(id) {
+        const s = slotsById[id];
+        document.getElementById("tId").value = s.id;
+        document.getElementById("tFaculty").value = s.facultyId;
+        document.getElementById("tDay").value = s.day;
+        document.getElementById("tPeriod").value = s.period;
+        document.getElementById("tSubject").value = s.subject;
+        document.getElementById("tClass").value = s.className;
+        document.getElementById("tRoom").value = s.room || "";
+        document.getElementById("tTitle").textContent = "Edit Period #" + s.id;
+        document.getElementById("tSave").textContent = "Save Changes";
+        document.getElementById("tForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    async function saveSlot(e) {
+        e.preventDefault();
+        const id = val("tId");
+        const body = JSON.stringify({ facultyId: +val("tFaculty"), day: val("tDay"), period: +val("tPeriod"),
+            subject: val("tSubject"), className: val("tClass"), room: val("tRoom") });
+        try {
+            await api(FACULTY_API + "/timetable" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body });
+            toast(id ? "Period updated" : "Period added");
+            resetSlotForm();
+            await refresh();
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    async function deleteSlot(id) {
+        const s = slotsById[id];
+        if (!confirm(`Delete ${s.day} period ${s.period} (${s.subject}, ${s.className})?`)) return;
+        try {
+            await api(FACULTY_API + "/timetable/" + id, { method: "DELETE" });
+            toast("Period deleted");
+            await refresh();
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    async function loadLeaves() {
+        const leaves = await api(FACULTY_API + "/leaves");
+        const pending = leaves.filter(l => l.status === "PENDING").length;
+        document.getElementById("pendingCount").textContent = pending ? `(${pending} pending)` : "";
+        document.getElementById("leaveBody").innerHTML = leaves.reverse().map(l => `
+            <tr><td>${l.id}</td><td>${name(l.facultyId)}</td><td>${l.fromDate}</td><td>${l.toDate}</td><td>${l.reason}</td>
+            <td><span class="badge ${l.status}">${l.status}</span></td>
+            <td>${l.status === "PENDING"
+                ? `<button class="btn green" onclick="decide(${l.id}, 'approve')">Approve</button>
+                   <button class="btn red" onclick="decide(${l.id}, 'reject')">Reject</button>`
+                : l.status === "APPROVED"
+                    ? `<button class="btn purple" onclick="recommend(${l.id})">AI Recommend Substitutes</button>` : ""}
+            </td></tr>`).join("");
+    }
+
+    async function loadSubstitutions() {
+        const subs = await api(FACULTY_API + "/substitutes");
+        document.getElementById("subsBody").innerHTML = subs.length ? subs.map(a => {
+            const s = slotsById[a.slotId] || {};
+            return `<tr><td>${a.id}</td><td>${a.date} (P${s.period})</td><td>${s.subject} - ${s.className}</td>
+                    <td>${name(a.originalFacultyId)}</td><td>${name(a.substituteFacultyId)}</td></tr>`;
+        }).join("") : `<tr><td colspan="5" class="muted">No substitutions yet.</td></tr>`;
+    }
+
+    async function decide(id, action) {
+        try {
+            await api(`${FACULTY_API}/leaves/${id}/${action}`, { method: "PUT" });
+            toast("Leave " + action + "d");
+            await loadLeaves();
+            if (action === "approve") recommend(id);
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    let currentLeave = null;
+    async function recommend(leaveId) {
+        currentLeave = leaveId;
+        try {
+            const rec = await api(`${AI_API}/recommendations/leave/${leaveId}`);
+            document.getElementById("recCard").style.display = "block";
+            document.getElementById("recTitle").textContent =
+                `AI Substitute Recommendations - Leave #${leaveId} (${rec.absentFaculty})`;
+            const candidate = c => `<b>${c.name}</b> <span class="score">${c.score}/100</span><br>
+                                    <span class="muted">${c.reasons.join(" · ")}</span>`;
+            document.getElementById("recBody").innerHTML = rec.classes.length ? rec.classes.map(r => {
+                const c = r.affectedClass;
+                let action;
+                if (c.substituteFacultyId) action = `Assigned: <b>${name(c.substituteFacultyId)}</b>`;
+                else if (!r.recommended) action = `<span class="muted">No one available</span>`;
+                else {
+                    const opts = [r.recommended, ...r.alternatives]
+                        .map(x => `<option value="${x.facultyId}">${x.name} (${x.score})</option>`).join("");
+                    action = `<select id="sel-${c.slotId}-${c.date}">${opts}</select>
+                              <button class="btn green" onclick="assign(${c.slotId}, '${c.date}')">Confirm</button>`;
+                }
+                return `<tr><td>${c.date}<br><span class="muted">${c.day}</span></td><td>${c.period}</td>
+                        <td>${c.subject}<br><span class="muted">${c.className}, Room ${c.room}</span></td>
+                        <td>${r.recommended ? candidate(r.recommended) : "-"}</td>
+                        <td>${r.alternatives.map(a => `${a.name} (${a.score})`).join("<br>") || "-"}</td>
+                        <td>${action}</td></tr>`;
+            }).join("") : `<tr><td colspan="6" class="muted">No classes are affected by this leave.</td></tr>`;
+        } catch (err) { toast("AI service error: " + err.message + " (is port 8082 running?)"); }
+    }
+
+    async function assign(slotId, date) {
+        const substituteFacultyId = +document.getElementById(`sel-${slotId}-${date}`).value;
+        try {
+            await api(FACULTY_API + "/substitutes", { method: "POST",
+                body: JSON.stringify({ leaveId: currentLeave, slotId, date, substituteFacultyId }) });
+            toast("Substitute assigned: " + name(substituteFacultyId));
+            await loadFaculty();
+            recommend(currentLeave);
+        } catch (err) { toast("Error: " + err.message); }
+    }
+
+    async function refresh() {
+        try {
+            await loadFaculty();
+            await loadTimetable();
+            await Promise.all([loadLeaves(), loadSubstitutions()]);
+        } catch (err) { toast("Cannot reach Faculty Service: " + err.message); }
+    }
+    refresh();
+</script>
+</body>
+</html>

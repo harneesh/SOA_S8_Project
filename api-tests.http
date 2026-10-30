@@ -1,0 +1,130 @@
+### FacultySync REST API tests
+### Open this file in IntelliJ and click the green ▶ next to each request.
+### Start both services first (run configuration "FacultySync (All Services)").
+
+@faculty = http://localhost:8081/api
+@ai = http://localhost:8082/api
+
+### ===================== Faculty Management Service (8081) =====================
+
+### 1. List all faculty
+GET {{faculty}}/faculty
+
+### 2. Get one faculty member
+GET {{faculty}}/faculty/2
+
+### 3. Add a new faculty member
+POST {{faculty}}/faculty
+Content-Type: application/json
+
+{
+  "name": "Prof. Ravi Teja",
+  "department": "CSE",
+  "email": "ravi@college.edu",
+  "designation": "Assistant Professor",
+  "subjects": ["DBMS", "Data Structures"]
+}
+
+### 3a. Edit a faculty member
+PUT {{faculty}}/faculty/8
+Content-Type: application/json
+
+{
+  "name": "Prof. Fatima Khan",
+  "department": "CSE",
+  "email": "fatima@college.edu",
+  "designation": "Associate Professor",
+  "subjects": ["Algorithms", "Java Programming", "Data Structures", "DBMS"]
+}
+
+### 3b. Delete a faculty member (blocked with 409 if they still have periods, leaves or substitutions)
+DELETE {{faculty}}/faculty/9
+
+### 4. Weekly workload of every faculty (facultyId -> classes)
+GET {{faculty}}/faculty/workload
+
+### 5. Full timetable
+GET {{faculty}}/timetable
+
+### 6. Timetable of one faculty
+GET {{faculty}}/timetable?facultyId=2
+
+### 6a. Add a timetable period (409 if the faculty or the class is already busy at that time)
+POST {{faculty}}/timetable
+Content-Type: application/json
+
+{
+  "facultyId": 4,
+  "day": "FRIDAY",
+  "period": 5,
+  "subject": "DBMS",
+  "className": "CSE-3A",
+  "room": "103"
+}
+
+### 6b. Edit a timetable period (e.g. move it to period 6)
+PUT {{faculty}}/timetable/24
+Content-Type: application/json
+
+{
+  "facultyId": 4,
+  "day": "FRIDAY",
+  "period": 6,
+  "subject": "DBMS",
+  "className": "CSE-3A",
+  "room": "103"
+}
+
+### 6c. Delete a timetable period
+DELETE {{faculty}}/timetable/24
+
+### 7. Apply for leave (status = PENDING)
+POST {{faculty}}/leaves
+Content-Type: application/json
+
+{
+  "facultyId": 5,
+  "fromDate": "2026-11-05",
+  "toDate": "2026-11-06",
+  "reason": "Medical leave"
+}
+
+### 8. All leave requests (optionally ?status=PENDING / APPROVED / REJECTED)
+GET {{faculty}}/leaves
+
+### 9. HOD approves leave #1
+PUT {{faculty}}/leaves/1/approve
+
+### 10. HOD rejects leave #2
+PUT {{faculty}}/leaves/2/reject
+
+### 11. Classes affected by leave #1
+GET {{faculty}}/leaves/1/affected-classes
+
+### 12. Faculty free on a date & period (change the date to an upcoming Monday)
+GET {{faculty}}/faculty/available?date=2026-11-02&period=2
+
+### ======================== AI Substitute Service (8082) ========================
+
+### 13. AI recommendations for every class affected by leave #1
+###     (this service internally calls the Faculty Service over REST)
+GET {{ai}}/recommendations/leave/1
+
+### 14. Explain the scoring model
+GET {{ai}}/recommendations/model
+
+### ======================= Final decision by the HOD =======================
+
+### 15. Confirm a substitute (copy slotId/date from request 13)
+POST {{faculty}}/substitutes
+Content-Type: application/json
+
+{
+  "leaveId": 1,
+  "slotId": 3,
+  "date": "2026-11-02",
+  "substituteFacultyId": 8
+}
+
+### 16. All confirmed substitutions
+GET {{faculty}}/substitutes

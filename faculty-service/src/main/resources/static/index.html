@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FacultySync Services</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f3f5f9; color: #1f2937; }
+        header { background: #1e293b; color: #fff; padding: 20px 24px; }
+        header h1 { margin: 0; font-size: 22px; }
+        header p { margin: 4px 0 0; font-size: 13px; opacity: .8; }
+        main { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+        .svc { background: #fff; border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-top: 4px solid var(--c); }
+        .svc h2 { margin: 0 0 4px; font-size: 16px; }
+        .port { font-family: Consolas, monospace; font-size: 13px; color: var(--c); font-weight: 700; }
+        .svc p { font-size: 13px; color: #475569; margin: 8px 0 12px; }
+        .status { font-size: 12px; font-weight: 600; margin-top: 10px; }
+        .up { color: #059669; } .down { color: #dc2626; }
+        a.btn { display: inline-block; background: var(--c); color: #fff; padding: 7px 12px; border-radius: 5px; text-decoration: none; font-size: 13px; }
+        h3 { margin: 28px 0 10px; font-size: 15px; color: #334155; }
+        code { background: #e2e8f0; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+        ul { font-size: 14px; line-height: 1.9; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>FacultySync &middot; Microservices</h1>
+    <p>AI-Powered Faculty Leave Management &amp; Substitute Recommendation System</p>
+</header>
+<main>
+    <div class="grid">
+        <div class="svc" style="--c:#047857">
+            <h2>Faculty Portal</h2><div class="port">:8083</div>
+            <p>Faculty apply for leave, track status and view their timetable.</p>
+            <a class="btn" href="http://localhost:8083" target="_blank">Open Faculty Portal</a>
+            <div class="status" id="s8083"></div>
+        </div>
+        <div class="svc" style="--c:#1e3a8a">
+            <h2>HOD Portal</h2><div class="port">:8084</div>
+            <p>HOD approves leave, reviews AI recommendations, confirms substitutes.</p>
+            <a class="btn" href="http://localhost:8084" target="_blank">Open HOD Portal</a>
+            <div class="status" id="s8084"></div>
+        </div>
+        <div class="svc" style="--c:#475569">
+            <h2>Faculty Management Service</h2><div class="port">:8081</div>
+            <p>REST API + MySQL: faculty, leave, timetable, availability, substitutes.</p>
+            <a class="btn" href="/api/faculty" target="_blank">GET /api/faculty</a>
+            <div class="status up">&#9679; running</div>
+        </div>
+        <div class="svc" style="--c:#7c3aed">
+            <h2>AI Substitute Service</h2><div class="port">:8082</div>
+            <p>REST API: scores and ranks available faculty for each affected class.</p>
+            <a class="btn" href="http://localhost:8082/api/recommendations/model" target="_blank">GET /model</a>
+            <div class="status" id="s8082"></div>
+        </div>
+    </div>
+
+    <h3>Main REST endpoints</h3>
+    <ul>
+        <li><code>GET /api/faculty</code>, <code>GET /api/timetable</code>, <code>GET /api/faculty/available?date=&amp;period=</code></li>
+        <li><code>POST /api/leaves</code>, <code>PUT /api/leaves/{id}/approve</code>, <code>GET /api/leaves/{id}/affected-classes</code></li>
+        <li><code>POST /api/substitutes</code> (port 8081) &nbsp; <code>GET /api/recommendations/leave/{id}</code> (port 8082)</li>
+    </ul>
+</main>
+<script>
+    // Simple health check of the other services
+    const checks = { s8082: "http://localhost:8082/api/recommendations/model", s8083: "http://localhost:8083/", s8084: "http://localhost:8084/" };
+    for (const [id, url] of Object.entries(checks)) {
+        fetch(url, { mode: "no-cors" })
+            .then(() => document.getElementById(id).innerHTML = '<span class="up">&#9679; running</span>')
+            .catch(() => document.getElementById(id).innerHTML = '<span class="down">&#9679; not running</span>');
+    }
+</script>
+</body>
+</html>
