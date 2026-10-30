@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # FacultySync – AI-Powered Faculty Leave Management & Substitute Recommendation System
 
 **Course:** SOA Programming and Microservices
@@ -227,3 +228,6 @@ SELECT * FROM substitute_assignment;
 - Login with roles (Faculty / HOD / Admin) using Spring Security + JWT
 - Email notifications to the substitute
 - Docker Compose to run all services
+=======
+# SOA_S8_Project Batch 13
+>>>>>>> e49c6bf6bfd3cdf78552e30854acc5ef30469d8d
